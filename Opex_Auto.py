@@ -4,6 +4,7 @@ import pandas as pd
 import tkinter as tk
 from tkinter import messagebox
 import re
+from datetime import datetime
 
 USER_EMAIL = "chris.mccormick@safcodental.com"
 def load_approvers():
@@ -21,13 +22,68 @@ def sanitize_filename(filename):
     return re.sub(r'[^a-zA-Z0-9_\-]', '_', filename)
 
 def extract_invoice_details(subject, body):
+    all_text = ""
+    all_text += subject + body
     invoice_number = re.search(r'Invoice[\s#:]*([A-Za-z0-9-_]+)', subject + body, re.IGNORECASE)
     invoice_number = invoice_number.group(1) if invoice_number else "Unknown"
-    invoice_date = re.search(r'(\d{1,2}/\d{1,2}/\d{2,4})', body)
-    invoice_date = invoice_date.group(1) if invoice_date else "Unknown"
-    invoice_date = re.sub(r'[^0-9]', '', invoice_date)[:6] if invoice_date != "Unknown" else "Unknown"
-    return invoice_number, invoice_date
+    invoice_dates = extract_dates(all_text)
+    return invoice_number, invoice_dates[0]
 
+def extract_dates(text):
+    date_formats = [
+        r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}',
+        r'\d{1,2} \w+ \d{2,4}',
+        r'\d{1,2}-\w+-\d{2,4}',
+        r'\d{1,2} \w+ \d{2,4}',
+        r'\w{3} \d{1,2}, \d{2,4}',
+        r'\w+ \d{1,2},? \d{2,4}',
+        r'\d{1,2}-\d{1,2}-\d{2,4}',
+        r'\d{2}.\d{2}.\d{4}',
+        r'\d{2}-\w{3}-\d{4}',
+        r'\d{2}.\d{2}.\d{4}',
+        r'\d{2}/[A-Za-z]{3}/\d{4}',
+        r'[A-Za-z]+[\xa0\s]*\d{1,2},[\xa0\s]*\d{4}'
+    ]
+    print(text)
+    dates = []
+    for date_format in date_formats:
+        dates.extend(re.findall(date_format, text))
+    print('dates: ', dates)
+    valid_dates = []
+    for date in dates:
+        try:
+            valid_dates.append(convert_to_mmddyy(date))
+        except Exception as e:
+            continue
+
+    print(valid_dates)
+
+    valid_dates = list(set(valid_dates))
+
+    return valid_dates if len(valid_dates) > 0 else None
+
+def convert_to_mmddyy(date):
+    try:
+        formats = [
+            "%m.%d.%Y", "%d.%m.%Y",
+            "%m-%d-%Y", "%m/%d/%Y", "%m-%d-%y", "%m/%d/%y",
+            "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y",
+            "%B %d, %Y", "%b %d, %Y", "%B %e, %Y",
+            "%d %B %Y", "%d %b %Y",
+            "%d-%b-%Y", "%d-%b-%y",
+            "%Y-%m-%d"
+        ]
+
+        for fmt in formats:
+            try:
+                return datetime.strptime(date, fmt).strftime("%m%d%y")
+            except ValueError:
+                pass
+
+        raise ValueError(f"Date format for '{date}' not recognized")
+
+    except Exception as e:
+        raise ValueError(f"Error converting date '{date}': {e}") from e
 def find_vendor_name(subject, body, approvers):
     subject_lower = subject.lower()
     body_lower = body.lower()
@@ -37,10 +93,9 @@ def find_vendor_name(subject, body, approvers):
     print(f"DEBUG: No exact vendor match found in subject or body.")
     return "Unknown"
 
-def save_attachment_with_unique_name(attachment, folder_path):
+def save_attachment_with_unique_name(filename, attachment, folder_path):
     global attachments_extracted
     try:
-        filename = attachment.FileName
         base, ext = os.path.splitext(filename)
         save_path = os.path.join(folder_path, filename)
         counter = 1
@@ -53,13 +108,13 @@ def save_attachment_with_unique_name(attachment, folder_path):
         print(f"Saved attachment as: {os.path.basename(save_path)}")
     except Exception as e:
         print(f"Error saving attachment: {e}")
-def extract_attachments(save_path, attachments):
+def extract_attachments(save_path, filename, attachments):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
     for attachment in attachments:
         if attachment.FileName.lower().endswith(('.pdf', '.html')):
-            save_attachment_with_unique_name(attachment, save_path)
+            save_attachment_with_unique_name(filename, attachment, save_path)
             print(f"Saved PDF/html file: {attachment.FileName}")
         else:
             print(f"Ignored non-PDF attachment: {attachment.FileName}")
@@ -100,7 +155,15 @@ def process_emails():
                 vendor_name = find_vendor_name(message.Subject, message.Body, approvers)
 
                 # attempts to grab invoice num and date from email (again, enhance by extracting text)
+                # optional improvement: code every regular expression for all invoices
+                # ^^^ use sage exports to grab one invoice from every active vendor, and have
+                # ai make the regular expressions based on a csv?
                 invoice_number, invoice_date = extract_invoice_details(message.Subject, message.Body)
+                print(f"[chris] invoice_number: {invoice_number}, invoice_date: {invoice_date}")
+
+                # if the above function returns none for the number, sets it to unknown.
+                if invoice_date == None:
+                    invoice_date = "unknown"
 
                 # finds approver using vendor name
                 approver_email = approvers.get(vendor_name, "AP@safcodental.com")
@@ -130,16 +193,16 @@ def process_emails():
                 # enter this block if the email category is invoice and the word approval is not in the message body
                 # i think it would be better to check if the email came from internal before checking for the word
                 # approval, implement this in kevin-the-terminatior
-                if email_category == "Invoice" and "approval" not in message.Body.lower():
+                if email_category == "Invoice": # and "approval" not in message.Body.lower():
 
                     # set file name and sanitize the name
                     # there should be no need for sanitize_filename but we will keep it as a fail safe.
                     filename = f"{vendor_name} - {invoice_date} - {invoice_number}.pdf"
-                    pdf_filename = os.path.join(save_directory, sanitize_filename(filename))
+                    pdf_filename = os.path.join(save_directory, filename)
 
                     #currently editing this to extract pdf attachments from emails
                     print(f"Attempting to save invoice to: {pdf_filename}")
-                    extract_attachments(message, pdf_filename)
+                    extract_attachments(save_directory, pdf_filename, message.Attachments)
 
                     # forward the message to the correct approver
                     # in testing atm, sending to myself to see if it works.
@@ -153,7 +216,7 @@ def process_emails():
                     #change the category and move invoice to approval folder, this works properly
                     message.Categories = "Processed"
                     message.Move(approval_folder)
-                    message.Save()
+                    #message.Save() this just throws an exception
 
                     print(f"Forwarded invoice from {vendor_name} to {approver_email_str} and moved original email.")
             except Exception as e:
