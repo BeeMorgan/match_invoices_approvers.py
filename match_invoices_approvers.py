@@ -6,6 +6,8 @@ import comtypes.client
 import pandas as pd
 from PyPDF2 import PdfMerger
 
+#please make this work lol
+
 def get_outlook_folder(namespace, folder_path):
     """Dynamically finds the correct Outlook folder."""
     folders = folder_path.split("/")
