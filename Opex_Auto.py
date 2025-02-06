@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 import re
 
+USER_EMAIL = "chris.mccormick@safcodental.com"
 def load_approvers():
     file_path = "M:\\OPEX Automation\\Cleaned_Vendor_List.xlsx"
     df = pd.read_excel(file_path, sheet_name="Cleaned_Vendor_List")
@@ -38,6 +39,7 @@ def find_vendor_name(subject, body, approvers):
     return "Unknown"
 
 def save_email_as_pdf_or_msg(message, save_path):
+    # edit pdfkit config and save emails using i forget what the script is called
     try:
         config_path = r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"
         pdfkit_config = pdfkit.configuration(wkhtmltopdf=config_path)
@@ -61,10 +63,10 @@ def process_emails():
         approvers = load_approvers()
         outlook = win32com.client.Dispatch("Outlook.Application")
         namespace = outlook.GetNamespace("MAPI")
-        inbox = namespace.Folders["bee.morgan@safcodental.com"].Folders["Inbox"]
+        inbox = namespace.Folders[USER_EMAIL].Folders["Inbox"]
         messages = list(inbox.Items)
         save_directory = "T:\\Accounts Payable\\OPEX Filing\\1 - Invoices awaiting approval"
-        approval_folder = namespace.Folders["bee.morgan@safcodental.com"].Folders["Inbox"].Folders["EXPENSES"].Folders["SAFCO EXPENSES"].Folders["** WAITING APPROVALS **"]
+        approval_folder = namespace.Folders[USER_EMAIL].Folders["Inbox"].Folders["EXPENSES"].Folders["SAFCO EXPENSES"].Folders["** WAITING APPROVALS **"]
         print("Processing emails...")
         count = 0
         for message in messages[:]:
@@ -91,8 +93,8 @@ def process_emails():
                     print(f"Attempting to save invoice to: {pdf_filename}")
                     save_email_as_pdf_or_msg(message, pdf_filename)
                     forward = message.Forward()
-                    forward.To = approver_email_str
-                    forward.CC = "AP@safcodental.com" if "AP@safcodental.com" not in message.Recipients else ""
+                    forward.To = "chris.mccormick@safcodental.com"#approver_email_str
+                    #forward.CC = "AP@safcodental.com" if "AP@safcodental.com" not in message.Recipients else ""
                     forward.Subject = f"Approval Required: {vendor_name} - {invoice_date} - {invoice_number}"
                     forward.Body = "Please review and approve the attached invoice."
                     forward.Send()
