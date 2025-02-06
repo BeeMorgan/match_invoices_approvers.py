@@ -6,7 +6,7 @@ import comtypes.client
 import pandas as pd
 from PyPDF2 import PdfMerger
 
-#i will do my best!!!!
+USER_EMAIL = "chris.mccormick@safcodental.com"
 
 def get_outlook_folder(namespace, folder_path):
     """Dynamically finds the correct Outlook folder."""
@@ -21,8 +21,8 @@ def find_matching_email(invoice_number):
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
         namespace = outlook.GetNamespace("MAPI")
-        waiting_folder = get_outlook_folder(namespace, "bee.morgan@safcodental.com/Inbox/EXPENSES/** WAITING APPROVALS **")
-        processed_folder = get_outlook_folder(namespace, "bee.morgan@safcodental.com/Inbox/EXPENSES/* PROCESSED EXPENSES *")
+        waiting_folder = get_outlook_folder(namespace, f"{USER_EMAIL}/Inbox/EXPENSES/** WAITING APPROVALS **")
+        processed_folder = get_outlook_folder(namespace, f"{USER_EMAIL}/Inbox/EXPENSES/* PROCESSED EXPENSES *")
     except Exception as e:
         print(f"❌ Outlook connection failed: {e}")
         return None
