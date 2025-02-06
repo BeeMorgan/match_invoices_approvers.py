@@ -6,7 +6,7 @@ from tkinter import messagebox
 import re
 from datetime import datetime
 
-USER_EMAIL = "chris.mccormick@safcodental.com"
+USER_EMAIL = "bee.morgan@safcodental.com"
 def load_approvers():
     file_path = "T:\\OPEX Automation\\Cleaned_Vendor_List.xlsx"
     df = pd.read_excel(file_path, sheet_name="Cleaned_Vendor_List")
@@ -207,8 +207,8 @@ def process_emails():
                     # forward the message to the correct approver
                     # in testing atm, sending to myself to see if it works.
                     forward = message.Forward()
-                    forward.To = "chris.mccormick@safcodental.com"#approver_email_str
-                    #forward.CC = "AP@safcodental.com" if "AP@safcodental.com" not in message.Recipients else ""
+                    forward.To = approver_email_str
+                    forward.CC = "AP@safcodental.com" if "AP@safcodental.com" not in message.Recipients else ""
                     forward.Subject = f"Approval Required from {approver_email_str}: {vendor_name} - {invoice_date} - {invoice_number}"
                     forward.Body = "Please review and approve the attached invoice."
                     forward.Send()
