@@ -1,6 +1,6 @@
 import win32com.client
 import os
-import pdfkit
+from weasyprint import HTML
 import pandas as pd
 import tkinter as tk
 from tkinter import messagebox
@@ -41,12 +41,10 @@ def find_vendor_name(subject, body, approvers):
 def save_email_as_pdf_or_msg(message, save_path):
     # edit pdfkit config and save emails using i forget what the script is called
     try:
-        config_path = r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"
-        pdfkit_config = pdfkit.configuration(wkhtmltopdf=config_path)
         html_body = message.HTMLBody
         if not html_body.strip():
             raise ValueError("Email body is empty or cannot be converted.")
-        pdfkit.from_string(html_body, save_path, configuration=pdfkit_config)
+        HTML(html_body).write_pdf(save_path)
         print(f"Saved invoice to {save_path}")
     except Exception as e:
         print(f"Error saving invoice as PDF: {e}")
